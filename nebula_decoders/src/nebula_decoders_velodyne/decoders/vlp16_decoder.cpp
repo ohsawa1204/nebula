@@ -1,9 +1,9 @@
 #include "nebula_decoders/nebula_decoders_velodyne/decoders/vlp16_decoder.hpp"
 
+#include <angles/angles.h>
+
 #include <cmath>
 #include <utility>
-
-#include <angles/angles.h> 
 
 namespace nebula
 {
@@ -231,9 +231,10 @@ void Vlp16Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_pa
               float azimuth_corrected_f =
                 azimuth +
                 (azimuth_diff * ((dsr * VLP16_DSR_TOFFSET) + (firing * VLP16_FIRING_TOFFSET)) /
-                 VLP16_BLOCK_DURATION) - corrections.rot_correction * 180.0 / M_PI * 100;
-          
-              if (azimuth_corrected_f < 0.0){
+                 VLP16_BLOCK_DURATION) -
+                corrections.rot_correction * 180.0 / M_PI * 100;
+
+              if (azimuth_corrected_f < 0.0) {
                 azimuth_corrected_f += 36000.0;
               }
               const uint16_t azimuth_corrected =

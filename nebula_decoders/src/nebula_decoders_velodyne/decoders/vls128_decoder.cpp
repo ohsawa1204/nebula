@@ -1,9 +1,9 @@
 #include "nebula_decoders/nebula_decoders_velodyne/decoders/vls128_decoder.hpp"
 
+#include <angles/angles.h>
+
 #include <cmath>
 #include <utility>
-
-#include <angles/angles.h> 
 
 namespace nebula
 {
@@ -249,9 +249,11 @@ void Vls128Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_p
           }
 
           // Correct for the laser rotation as a function of timing during the firings.
-          float azimuth_corrected_f = azimuth + (azimuth_diff * vls_128_laser_azimuth_cache_[firing_order]) - corrections.rot_correction * 180.0 / M_PI * 100;
-          
-          if (azimuth_corrected_f < 0.0){
+          float azimuth_corrected_f = azimuth +
+                                      (azimuth_diff * vls_128_laser_azimuth_cache_[firing_order]) -
+                                      corrections.rot_correction * 180.0 / M_PI * 100;
+
+          if (azimuth_corrected_f < 0.0) {
             azimuth_corrected_f += 36000.0;
           }
           const uint16_t azimuth_corrected = ((uint16_t)std::round(azimuth_corrected_f)) % 36000;
@@ -340,10 +342,10 @@ void Vls128Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_p
               current_point.intensity = intensity;
               scan_pc_->points.emplace_back(current_point);
             }  // 2nd scan area condition
-          }    // distance condition
-        }      // empty "else"
-      }        // (uint j = 0, k = 0; j < SCANS_PER_BLOCK; j++, k += RAW_SCAN_SIZE)
-    }          // scan area condition
+          }  // distance condition
+        }  // empty "else"
+      }  // (uint j = 0, k = 0; j < SCANS_PER_BLOCK; j++, k += RAW_SCAN_SIZE)
+    }  // scan area condition
   }  // for (uint block = 0; block < static_cast < uint > (BLOCKS_PER_PACKET - (4 * dual_return));
      // block++)
 }
