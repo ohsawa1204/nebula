@@ -1,4 +1,5 @@
 #include "nebula_hw_interfaces/nebula_hw_interfaces_hesai/hesai_hw_interface.hpp"
+
 #include <sstream>
 
 // #define WITH_DEBUG_STDOUT_HESAI_HW_INTERFACE
@@ -69,7 +70,8 @@ std::shared_ptr<std::vector<uint8_t>> HesaiHwInterface::SendReceive(
   bool success = false;
 
   std::stringstream ss;
-  ss << "0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(command_id) << " (" << len << ") ";
+  ss << "0x" << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(command_id)
+     << " (" << len << ") ";
   std::string log_tag = ss.str();
 
   PrintDebug(log_tag + "Entering lock");
@@ -86,9 +88,13 @@ std::shared_ptr<std::vector<uint8_t>> HesaiHwInterface::SendReceive(
   tcp_driver_->asyncSendReceiveHeaderPayload(
     send_buf,
     [this, log_tag, &success](const std::vector<uint8_t> & header_bytes) {
-      size_t payload_len = (header_bytes[4] << 24) | (header_bytes[5] << 16) | (header_bytes[6] << 8) | header_bytes[7];
-      PrintDebug(log_tag + "Received header (expecting " + std::to_string(payload_len) + "B payload)");
-      if (payload_len == 0) { success = true; }
+      size_t payload_len = (header_bytes[4] << 24) | (header_bytes[5] << 16) |
+                           (header_bytes[6] << 8) | header_bytes[7];
+      PrintDebug(
+        log_tag + "Received header (expecting " + std::to_string(payload_len) + "B payload)");
+      if (payload_len == 0) {
+        success = true;
+      }
     },
     [this, log_tag, &recv_buf, &success](const std::vector<uint8_t> & payload_bytes) {
       PrintDebug(log_tag + "Received payload");
@@ -105,7 +111,7 @@ std::shared_ptr<std::vector<uint8_t>> HesaiHwInterface::SendReceive(
     },
     [this, log_tag, &tm]() {
       PrintDebug(log_tag + "Unlocking mutex");
-      tm.unlock(); 
+      tm.unlock();
       PrintDebug(log_tag + "Unlocked mutex");
     });
   this->IOContextRun();

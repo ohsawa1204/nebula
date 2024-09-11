@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from argparse import ArgumentParser
+from dataclasses import dataclass
+from ipaddress import IPv4Address
+from ipaddress import IPv4Network
+from ipaddress import ip_interface
 import socket
 import struct
 import sys
-from argparse import ArgumentParser
-from dataclasses import dataclass
-from ipaddress import IPv4Address, IPv4Network, ip_interface
 from typing import Any
 
 from rich import print

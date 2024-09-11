@@ -1,11 +1,13 @@
 #%%
 
-import os
-import pandas as pd
-import re
-import glob
 import argparse
+import glob
+import os
+import re
+
 from matplotlib import pyplot as plt
+import pandas as pd
+
 
 def parse_logs(run_name):
     dfs = []
@@ -21,7 +23,7 @@ def parse_logs(run_name):
         dfs.append(pd.DataFrame(records))
 
     df = pd.concat(dfs)
-    
+
     for col in [c for c in df.columns if c.startswith("d_")]:
         df[col] /= 1e6  # ns to ms
     df['d_total'] = sum([df[c] for c in df.columns if c.startswith("d_")]) # type: ignore
@@ -46,7 +48,7 @@ def plot_timing_comparison(run_names):
         ax_d.plot(durations.index, durations, label=label, linestyle='', marker='.')
         for col in filter(lambda col: col.startswith("n_"), df.columns):
             ax_n.plot(df.index, df[col], label=f"{label}::{col}", linestyle='', marker='.', color='black')
-        
+
         d_columns = [col for col in df.columns if col.startswith("d_")]
         n_cols = len(d_columns)
         for j, col in enumerate(d_columns):

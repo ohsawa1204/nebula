@@ -1,9 +1,9 @@
 #include "nebula_decoders/nebula_decoders_velodyne/decoders/vlp32_decoder.hpp"
 
+#include <angles/angles.h>
+
 #include <cmath>
 #include <utility>
-
-#include <angles/angles.h> 
 
 namespace nebula
 {
@@ -173,9 +173,8 @@ void Vlp32Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_pa
       // This makes the assumption the difference between the last block and the next packet is the
       // same as the last to the second to last.
       // Assumes RPM doesn't change much between blocks.
-      azimuth_diff = (i == static_cast<uint>(BLOCKS_PER_PACKET - (4 * dual_return) - 1))
-                       ? 0
-                       : last_azimuth_diff;
+      azimuth_diff =
+        (i == static_cast<uint>(BLOCKS_PER_PACKET - (4 * dual_return) - 1)) ? 0 : last_azimuth_diff;
     }
 
     for (uint j = 0, k = 0; j < SCANS_PER_BLOCK; j++, k += RAW_SCAN_SIZE) {
@@ -232,7 +231,9 @@ void Vlp32Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_pa
             raw->blocks[i].rotation >= sensor_configuration_->cloud_min_angle * 100))) {
           const float cos_vert_angle = corrections.cos_vert_correction;
           const float sin_vert_angle = corrections.sin_vert_correction;
-          float azimuth_corrected_f = azimuth + (azimuth_diff * VLP32_CHANNEL_DURATION / VLP32_SEQ_DURATION * j) - corrections.rot_correction * 180.0 / M_PI * 100;
+          float azimuth_corrected_f =
+            azimuth + (azimuth_diff * VLP32_CHANNEL_DURATION / VLP32_SEQ_DURATION * j) -
+            corrections.rot_correction * 180.0 / M_PI * 100;
           if (azimuth_corrected_f < 0) {
             azimuth_corrected_f += 36000;
           }

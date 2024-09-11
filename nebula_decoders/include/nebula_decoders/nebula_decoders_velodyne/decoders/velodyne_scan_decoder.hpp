@@ -1,6 +1,13 @@
 #ifndef NEBULA_WS_VELODYNE_SCAN_DECODER_HPP
 #define NEBULA_WS_VELODYNE_SCAN_DECODER_HPP
+#include "nebula_common/point_types.hpp"
+#include "nebula_common/velodyne/velodyne_calibration_decoder.hpp"
+#include "nebula_common/velodyne/velodyne_common.hpp"
+
 #include <rclcpp/rclcpp.hpp>
+
+#include <velodyne_msgs/msg/velodyne_packet.hpp>
+#include <velodyne_msgs/msg/velodyne_scan.hpp>
 
 #include <boost/format.hpp>
 
@@ -10,16 +17,8 @@
 #include <cmath>
 #include <cstdint>
 #include <string>
-#include <vector>
-
-#include "nebula_common/point_types.hpp"
-#include "nebula_common/velodyne/velodyne_calibration_decoder.hpp"
-#include "nebula_common/velodyne/velodyne_common.hpp"
-
-#include <velodyne_msgs/msg/velodyne_packet.hpp>
-#include <velodyne_msgs/msg/velodyne_scan.hpp>
-
 #include <tuple>
+#include <vector>
 
 namespace nebula
 {
@@ -55,8 +54,8 @@ static const float VLP16_DSR_TOFFSET = 2.304f;       // [µs]
 static const float VLP16_FIRING_TOFFSET = 55.296f;   // [µs]
 
 /** Special Defines for VLP32 support **/
-static const float VLP32_CHANNEL_DURATION = 2.304f;       // [µs]
-static const float VLP32_SEQ_DURATION = 55.296f;   // [µs]
+static const float VLP32_CHANNEL_DURATION = 2.304f;  // [µs]
+static const float VLP32_SEQ_DURATION = 55.296f;     // [µs]
 
 /** Special Definitions for VLS128 support **/
 static const float VLP128_DISTANCE_RESOLUTION = 0.004f;  // [m]
