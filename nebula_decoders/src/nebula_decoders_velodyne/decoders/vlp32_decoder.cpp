@@ -145,6 +145,8 @@ void Vlp32Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_pa
   uint8_t return_mode = velodyne_packet.data[RETURN_MODE_INDEX];
   const bool dual_return = (return_mode == RETURN_MODE_DUAL);
 
+  auto block_timestamp = rclcpp::Time(velodyne_packet.stamp).seconds();
+
   for (uint i = 0; i < BLOCKS_PER_PACKET; i++) {
     int bank_origin = 0;
     if (raw->blocks[i].header == LOWER_BANK) {
@@ -199,7 +201,6 @@ void Vlp32Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_pa
           i % 2 ? raw->blocks[i - 1].data[k + 1] : raw->blocks[i + 1].data[k + 1];
       }
       // Apply timestamp if this is the first new packet in the scan.
-      auto block_timestamp = rclcpp::Time(velodyne_packet.stamp).seconds();
       if (scan_timestamp_ < 0) {
         scan_timestamp_ = block_timestamp;
       }

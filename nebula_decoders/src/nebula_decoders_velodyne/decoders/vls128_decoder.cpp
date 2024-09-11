@@ -147,6 +147,8 @@ void Vls128Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_p
   const uint8_t return_mode = velodyne_packet.data[RETURN_MODE_INDEX];
   const bool dual_return = (return_mode == RETURN_MODE_DUAL);
 
+  auto block_timestamp = rclcpp::Time(velodyne_packet.stamp).seconds();
+
   for (uint block = 0; block < static_cast<uint>(BLOCKS_PER_PACKET - (4 * dual_return)); block++) {
     // Cache block for use.
     const raw_block_t & current_block = raw->blocks[block];
@@ -223,7 +225,6 @@ void Vls128Decoder::unpack(const velodyne_msgs::msg::VelodynePacket & velodyne_p
             block % 2 ? raw->blocks[block - 1].data[k + 1] : raw->blocks[block + 1].data[k + 1];
         }
         // Apply timestamp if this is the first new packet in the scan.
-        auto block_timestamp = rclcpp::Time(velodyne_packet.stamp).seconds();
         if (scan_timestamp_ < 0) {
           scan_timestamp_ = block_timestamp;
         }
