@@ -96,8 +96,14 @@ void HesaiHwMonitorWrapper::initialize_hesai_diagnostics(bool monitor_enabled)
     }
   };
 
-  fetch_diagnostics_timer_ = parent_node_->create_wall_timer(
-    std::chrono::milliseconds(diag_span_), std::move(fetch_diag_from_sensor));
+  auto fetch_diag_from_sensor_timer = [this, fetch_diag_from_sensor](std::chrono::milliseconds milliseconds) {
+    while (1) {
+      std::this_thread::sleep_for(milliseconds);
+      fetch_diag_from_sensor();
+    }
+  };
+  std::thread fetch_diag_from_sensor_timer_thread(fetch_diag_from_sensor_timer, std::chrono::milliseconds(diag_span_));
+  fetch_diag_from_sensor_timer_thread.detach();
 
   if (monitor_enabled) {
     if (hw_interface_->use_http_get_lidar_monitor()) {
@@ -136,8 +142,15 @@ void HesaiHwMonitorWrapper::initialize_hesai_diagnostics(bool monitor_enabled)
     }
     diagnostics_updater_.force_update();
   };
-  diagnostics_update_timer_ =
-    parent_node_->create_wall_timer(std::chrono::milliseconds(1000), std::move(on_timer_update));
+
+  auto on_timer_update_timer = [this, on_timer_update](std::chrono::milliseconds milliseconds) {
+    while (1) {
+      std::this_thread::sleep_for(milliseconds);
+      on_timer_update();
+    }
+  };
+  std::thread on_timer_update_timer_thread(on_timer_update_timer, std::chrono::milliseconds(1000));
+  on_timer_update_timer_thread.detach();
 
   RCLCPP_DEBUG_STREAM(logger_, "add_timer");
 }
