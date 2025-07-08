@@ -39,6 +39,8 @@
 #include <utility>
 #include <vector>
 
+#define REUSE_TIMESTAMP
+
 namespace nebula::drivers
 {
 
@@ -80,6 +82,10 @@ private:
 
   /// @brief The last decoded packet
   typename SensorT::packet_t packet_;
+
+  #ifdef REUSE_TIMESTAMP
+  uint64_t packet_timestamp_ns_;
+  #endif
 
   ScanCutAngles scan_cut_angles_;
   uint32_t last_azimuth_ = 0;
@@ -129,7 +135,11 @@ private:
   /// the packet footer)
   void convert_returns(size_t start_block_id, size_t n_blocks)
   {
+    #ifdef REUSE_TIMESTAMP
+    uint64_t packet_timestamp_ns = packet_timestamp_ns_;
+    #else
     uint64_t packet_timestamp_ns = hesai_packet::get_timestamp_ns(packet_);
+    #endif
     uint32_t raw_azimuth = packet_.body.blocks[start_block_id].get_azimuth();
 
     std::vector<const typename SensorT::packet_t::body_t::block_t::unit_t *> return_units;
@@ -371,11 +381,21 @@ public:
       return {DecodeError::CRC_CHECK_FAILED};
     }
 
+    #ifdef REUSE_TIMESTAMP
+    packet_timestamp_ns_ = hesai_packet::get_timestamp_ns(packet_);
+    #endif
+
     // This is the first scan, set scan timestamp to whatever packet arrived first
     if (decode_frame_.scan_timestamp_ns == 0) {
+      #ifdef REUSE_TIMESTAMP
+      decode_frame_.scan_timestamp_ns =
+        packet_timestamp_ns_ +
+        sensor_.get_earliest_point_time_offset_for_block(0, packet_);
+      #else
       decode_frame_.scan_timestamp_ns =
         hesai_packet::get_timestamp_ns(packet_) +
         sensor_.get_earliest_point_time_offset_for_block(0, packet_);
+      #endif
     }
 
     bool did_scan_complete = false;
@@ -385,9 +405,15 @@ public:
       auto block_azimuth = packet_.body.blocks[block_id].get_azimuth();
 
       if (angle_corrector_.passed_timestamp_reset_angle(last_azimuth_, block_azimuth)) {
+	#ifdef REUSE_TIMESTAMP
+        uint64_t new_scan_timestamp_ns =
+          packet_timestamp_ns_ +
+          sensor_.get_earliest_point_time_offset_for_block(block_id, packet_);
+	#else
         uint64_t new_scan_timestamp_ns =
           hesai_packet::get_timestamp_ns(packet_) +
           sensor_.get_earliest_point_time_offset_for_block(block_id, packet_);
+	#endif
 
         if (sensor_configuration_->cut_angle == sensor_configuration_->cloud_max_angle) {
           // In the non-360 deg case, if the cut angle and FoV end coincide, the old pointcloud has
@@ -427,7 +453,11 @@ public:
     }
 
     PacketMetadata metadata;
+    #ifdef REUSE_TIMESTAMP
+    metadata.packet_timestamp_ns = packet_timestamp_ns_;
+    #else
     metadata.packet_timestamp_ns = hesai_packet::get_timestamp_ns(packet_);
+    #endif
     metadata.last_azimuth = last_azimuth_;
     return {metadata};
   }
