@@ -81,6 +81,10 @@ HesaiDecoderWrapper::HesaiDecoderWrapper(
   RCLCPP_INFO_STREAM(logger_, ". Wrapper=" << status_);
 
   diagnostic_updater.add(publish_diagnostic_);
+
+  #ifdef ENABLE_PUBLISH_THREAD
+  publish_thread_ = std::make_unique<std::thread>(&HesaiDecoderWrapper::__on_pointcloud_decoded, this);
+  #endif
 }
 
 void HesaiDecoderWrapper::on_config_change(
@@ -105,8 +109,8 @@ HesaiDecoderWrapper::process_cloud_packet(
 {
   // Accumulate packets for recording only if someone is subscribed to the topic (for performance)
   if (
-    packets_pub_ && (packets_pub_->get_subscription_count() > 0 ||
-                     packets_pub_->get_intra_process_subscription_count() > 0)) {
+    packets_pub_ /* && (packets_pub_->get_subscription_count() > 0 ||
+                        packets_pub_->get_intra_process_subscription_count() > 0) */) {
     if (current_scan_msg_->packets.size() == 0) {
       current_scan_msg_->header.stamp = packet_msg->stamp;
     }
@@ -122,9 +126,67 @@ HesaiDecoderWrapper::process_cloud_packet(
   return driver_ptr_->parse_cloud_packet(packet_msg->data);
 }
 
+#ifdef ENABLE_PUBLISH_THREAD
+void HesaiDecoderWrapper::__on_pointcloud_decoded(void)
+{
+  while (1) {
+    std::unique_lock<std::mutex> lock(mtx_);
+    cv_.wait(lock);
+    while (!data_queue.empty()) {
+      auto pointcloud_msg = std::move(data_queue.front());
+      data_queue.pop();
+      lock.unlock();
+
+      if (pointcloud_msg->current_scan_msg_)
+	packets_pub_->publish(std::move(pointcloud_msg->current_scan_msg_));
+
+      rclcpp::Time cloud_stamp = rclcpp::Time(seconds_to_chrono_nano_seconds(pointcloud_msg->timestamp_s).count());
+      if (NEBULA_HAS_ANY_SUBSCRIPTIONS(nebula_points_pub_)) {
+	auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(nebula_points_pub_);
+	pcl::toROSMsg(*pointcloud_msg->pointcloud, *ros_pc_msg_ptr);
+	ros_pc_msg_ptr->header.stamp = cloud_stamp;
+	publish_cloud(std::move(ros_pc_msg_ptr), nebula_points_pub_);
+      }
+      if (NEBULA_HAS_ANY_SUBSCRIPTIONS(aw_points_base_pub_)) {
+	const auto autoware_cloud_xyzi =
+	  nebula::drivers::convert_point_xyzircaedt_to_point_xyzir(pointcloud_msg->pointcloud);
+	auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(aw_points_base_pub_);
+	pcl::toROSMsg(*autoware_cloud_xyzi, *ros_pc_msg_ptr);
+	ros_pc_msg_ptr->header.stamp = cloud_stamp;
+	publish_cloud(std::move(ros_pc_msg_ptr), aw_points_base_pub_);
+      }
+      if (NEBULA_HAS_ANY_SUBSCRIPTIONS(aw_points_ex_pub_)) {
+	const auto autoware_ex_cloud =
+	  nebula::drivers::convert_point_xyzircaedt_to_point_xyziradt(pointcloud_msg->pointcloud, pointcloud_msg->timestamp_s);
+	auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(aw_points_ex_pub_);
+	pcl::toROSMsg(*autoware_ex_cloud, *ros_pc_msg_ptr);
+	ros_pc_msg_ptr->header.stamp = cloud_stamp;
+	publish_cloud(std::move(ros_pc_msg_ptr), aw_points_ex_pub_);
+      }
+
+      publish_diagnostic_.tick();
+      lock.lock();
+    }
+  }
+}
+#endif
+
 void HesaiDecoderWrapper::on_pointcloud_decoded(
   const drivers::NebulaPointCloudPtr & pointcloud, double timestamp_s)
 {
+  #ifdef ENABLE_PUBLISH_THREAD
+  auto pointcloud_msg = std::make_unique<struct _pointcloud_msg>();
+  if (current_scan_msg_ && !current_scan_msg_->packets.empty()) {
+    pointcloud_msg->current_scan_msg_ = std::move(current_scan_msg_);
+    current_scan_msg_ = std::make_unique<pandar_msgs::msg::PandarScan>();
+  } else
+    pointcloud_msg->current_scan_msg_ = nullptr;
+  pointcloud_msg->pointcloud = drivers::NebulaPointCloudPtr(pointcloud);
+  pointcloud_msg->timestamp_s = timestamp_s;
+  std::lock_guard<std::mutex> lock(mtx_);
+  data_queue.push(std::move(pointcloud_msg));
+  cv_.notify_one();
+  #else
   // Publish scan message only if it has been written to
   if (current_scan_msg_ && !current_scan_msg_->packets.empty()) {
     packets_pub_->publish(std::move(current_scan_msg_));
@@ -157,6 +219,7 @@ void HesaiDecoderWrapper::on_pointcloud_decoded(
   }
 
   publish_diagnostic_.tick();
+  #endif
 }
 
 void HesaiDecoderWrapper::publish_cloud(

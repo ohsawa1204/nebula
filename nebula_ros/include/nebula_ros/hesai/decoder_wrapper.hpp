@@ -35,6 +35,11 @@
 #include <optional>
 #include <utility>
 
+#define ENABLE_PUBLISH_THREAD
+#ifdef ENABLE_PUBLISH_THREAD
+#include <queue>
+#endif
+
 namespace nebula::ros
 {
 class HesaiDecoderWrapper
@@ -118,6 +123,10 @@ private:
     const std::shared_ptr<const drivers::HesaiSensorConfiguration> & config,
     const std::shared_ptr<const drivers::HesaiCalibrationConfigurationBase> & calibration);
 
+  #ifdef ENABLE_PUBLISH_THREAD
+  void __on_pointcloud_decoded(void);
+  #endif
+
   nebula::Status status_;
   rclcpp::Logger logger_;
   rclcpp::Node & parent_node_;
@@ -140,5 +149,17 @@ private:
   custom_diagnostic_tasks::RateBoundStatus publish_diagnostic_;
   std::optional<FunctionalSafetyDiagnosticTask> functional_safety_diagnostic_;
   std::optional<PacketLossDiagnosticTask> packet_loss_diagnostic_;
+
+  #ifdef ENABLE_PUBLISH_THREAD
+  std::unique_ptr<std::thread> publish_thread_;
+  std::mutex mtx_;
+  std::condition_variable cv_;
+  struct _pointcloud_msg {
+    pandar_msgs::msg::PandarScan::UniquePtr current_scan_msg_;
+    drivers::NebulaPointCloudPtr pointcloud;
+    double timestamp_s;
+  };
+  std::queue<std::unique_ptr<struct _pointcloud_msg>> data_queue;
+  #endif
 };
 }  // namespace nebula::ros
